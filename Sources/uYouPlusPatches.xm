@@ -6,10 +6,39 @@
 %group gGoogleSignInPatch
 %hook NSBundle
 - (NSDictionary *)infoDictionary {
+    NSUserDefaults *defaults = [NSUserDefaults standardUserDefaults];
+    BOOL patchEnabled = [defaults boolForKey:@"kGoogleSignInPatch"];
+    if (!patchEnabled) {
+        return %orig;
+    }
+    NSInteger restartCount = [defaults integerForKey:@"kGoogleSignInPatchRestartCount"];
+    if (restartCount >= 2) {
+        [defaults setBool:NO forKey:@"kGoogleSignInPatch"];
+        [defaults synchronize];
+        return %orig;
+    }
+    [defaults setInteger:restartCount + 1 forKey:@"kGoogleSignInPatchRestartCount"];
+    [defaults synchronize];
+    BOOL crashDetected = [defaults boolForKey:@"kGoogleSignInPatchCrashFlag"];
+    if (crashDetected) {
+        [defaults setBool:NO forKey:@"kGoogleSignInPatchCrashFlag"];
+        [defaults setBool:NO forKey:@"kGoogleSignInPatch"];
+        [defaults synchronize];
+        return %orig;
+    }
     NSMutableDictionary *info = %orig.mutableCopy;
-    if ([self isEqual:NSBundle.mainBundle])
+    if ([self isEqual:NSBundle.mainBundle]) {
         info[@"CFBundleIdentifier"] = @"com.google.ios.youtube";
+    }
     return info;
+}
+%end
+%hook NSException
++ (void)raise:(NSException *)exception {
+    NSUserDefaults *defaults = [NSUserDefaults standardUserDefaults];
+    [defaults setBool:YES forKey:@"kGoogleSignInPatchCrashFlag"];
+    [defaults synchronize];
+    %orig(exception);
 }
 %end
 %end
@@ -99,7 +128,8 @@ typedef NS_ENUM(NSInteger, ShareEntityType) {
     ShareEntityFieldPlaylist = 2,
     ShareEntityFieldChannel = 3,
     ShareEntityFieldPost = 6,
-    ShareEntityFieldClip = 8
+    ShareEntityFieldClip = 8,
+    ShareEntityFieldShortFlag = 10
 };
 
 static inline NSString* extractIdWithFormat(GPBUnknownFields *fields, NSInteger fieldNumber, NSString *format) {
@@ -137,8 +167,12 @@ static BOOL showNativeShareSheet(NSString *serializedShareEntity, UIView *source
         }
     }
 
-    if (!shareUrl)
-        shareUrl = extractIdWithFormat(fields, ShareEntityFieldVideo, @"https://youtube.com/watch?v=%@");
+    if (!shareUrl) {
+        NSString *format = @"https://youtube.com/watch?v=%@";
+        if ([fields fields:ShareEntityFieldShortFlag])
+            format = @"https://youtube.com/shorts/%@";
+        shareUrl = extractIdWithFormat(fields, ShareEntityFieldVideo, format);
+    }
 
     if (!shareUrl)
         shareUrl = extractIdWithFormat(fields, ShareEntityFieldPost, @"https://youtube.com/post/%@");
@@ -389,6 +423,17 @@ static void refreshUYouAppearance() {
     return titleLabel;
 }
 %end
+
+%hook YTPlayerViewController
+ 
+ - (id)varispeedController {
+     id controller = %orig;
+     if (controller == nil && [self respondsToSelector:@selector(overlayManager)])
+         controller = [self.overlayManager varispeedController];
+     return controller;
+ }
+ 
+ %end
 
 %ctor {
     %init;
