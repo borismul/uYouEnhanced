@@ -359,3 +359,12 @@ static NSString *const kGoogleSigninFix = @"googleSigninFix_enabled";
 
 @interface YTPivotBarIndicatorView : UIView
 @end
+
+// uYou runtime additions
+@interface YTMainAppControlsOverlayView (uYou)
+- (id)uYou;
+@end
+
+@interface YTPlayerOverlayManager (uYouEnhanced)
+- (void)varispeedSwitchController:(id)controller didSelectRate:(float)rate;
+@end
