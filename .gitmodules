@@ -7,7 +7,7 @@
     url = https://github.com/hbang/Alderis.git
 [submodule "Tweaks/DontEatMyContent"]
     path = Tweaks/DontEatMyContent
-    url = https://github.com/PoomSmart/DontEatMyContent.git
+    url = https://github.com/aricloverEXTRA/DontEatMyContent.git
 [submodule "Tweaks/FLEXing"]
     path = Tweaks/FLEXing
     url = https://github.com/PoomSmart/FLEXing.git
